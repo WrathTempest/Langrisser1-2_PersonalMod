@@ -93,11 +93,8 @@ namespace Langrisser1_2_PersonalMod.Utils
         /// Unlocks all magic spells (IDs 0 to 127).
         public static void LearnAllMagic(UnitCTRL unit)
         {
-            if (unit == null || unit.unitWork == null) return;
-
-            // Setting ulong.MaxValue sets all 64 bits to 1
-            unit.unitWork.magicFlag1 = ulong.MaxValue;
-            unit.unitWork.magicFlag2 = ulong.MaxValue;
+            if (unit == null) return;
+            unit.SetMagicFlagAll();
         }
 
         /// Unlocks all skills (IDs 0 to 127) and optionally fills empty equipment slots.
@@ -105,21 +102,9 @@ namespace Langrisser1_2_PersonalMod.Utils
         {
             if (unit == null || unit.unitWork == null) return;
 
-            // Setting ulong.MaxValue sets all 64 bits to 1
-            unit.unitWork.skillFlag1 = ulong.MaxValue;
-            unit.unitWork.skillFlag2 = ulong.MaxValue;
-
-            // Mimics original LearnSkill behavior: equips skills 0 and 1 if active slots are empty
-            if (autoEquipIfEmpty && unit.unitWork.skillSelect != null)
+            for (int i = 0; i < unit.unitManager.skillDataCount; i++)
             {
-                if (unit.unitWork.skillSelect[0] == -1)
-                {
-                    unit.unitWork.skillSelect[0] = 0;
-                }
-                if (unit.unitWork.skillSelect.Length > 1 && unit.unitWork.skillSelect[1] == -1)
-                {
-                    unit.unitWork.skillSelect[1] = 1;
-                }
+                unit.LearnSkill(i);
             }
         }
 
@@ -150,10 +135,25 @@ namespace Langrisser1_2_PersonalMod.Utils
                 return (unit.unitWork.magicFlag2 & mask) != 0;
             }
         }
-
-        /// <summary>
-        /// Checks if a unit has learned a specific skill.
-        /// </summary>
+        public static bool GetSkillData(UnitCTRL unit, string searchName, out SkillData skillData)
+        {
+            if (!IsSkillLearned(unit, searchName))
+            {
+                skillData = null;
+                return false;
+            }
+            skillData = unit.unitManager.GetSkillData(unit.unitManager.GetSkillNumber(searchName));
+            return true;
+        }
+        public static bool IsSkillLearned(UnitCTRL unit, string searchName)
+        {
+            int skillID = unit.unitManager.GetSkillNumber(searchName);
+            if (skillID != -1)
+            {
+                return IsSkillLearned(unit, skillID);
+            }
+            return false;
+        }
         public static bool IsSkillLearned(UnitCTRL unit, int skillNumber)
         {
             if (unit == null || unit.unitWork == null || skillNumber < 0 || skillNumber >= 128)
@@ -342,6 +342,29 @@ namespace Langrisser1_2_PersonalMod.Utils
                 throw new MissingMethodException(type.FullName, methodName);
 
             return method.Invoke(null, args);
+        }
+        public static class StaticHelpers
+        {
+            // Retrieve the internal Type by name (e.g., "Namespace.ClassName" or "Namespace.Outer+Nested")
+            public static Type GetType(string fullTypeName)
+                => AccessTools.TypeByName(fullTypeName)
+                   ?? throw new InvalidOperationException($"Could not find internal type: {fullTypeName}");
+
+            // Read a static field or property value
+            public static T GetField<T>(string fullTypeName, string fieldName)
+                => Traverse.Create(GetType(fullTypeName)).Field<T>(fieldName).Value;
+
+            // Set a static field or property value
+            public static void SetField<T>(string fullTypeName, string fieldName, T value)
+                => Traverse.Create(GetType(fullTypeName)).Field(fieldName).SetValue(value);
+
+            // Call a static method returning a value
+            public static T Call<T>(string fullTypeName, string methodName, params object[] args)
+                => Traverse.Create(GetType(fullTypeName)).Method(methodName, args).GetValue<T>();
+
+            // Call a void static method
+            public static void Call(string fullTypeName, string methodName, params object[] args)
+                => Traverse.Create(GetType(fullTypeName)).Method(methodName, args).GetValue();
         }
     }
 }

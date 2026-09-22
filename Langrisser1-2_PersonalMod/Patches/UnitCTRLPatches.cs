@@ -1,4 +1,5 @@
-﻿using HarmonyLib;
+﻿using GameCommon;
+using HarmonyLib;
 using Langrisser1_2_PersonalMod.Utils;
 using System;
 using System.Collections.Generic;
@@ -43,6 +44,11 @@ namespace Langrisser1_2_PersonalMod.Patches
                 num = 10000;
             }
             __result = num;
+
+            if (Helpers.IsSkillLearned(__instance, "Legend"))
+            {
+                Helpers.LearnAllMagic(__instance);
+            }
         }
 
         [HarmonyPatch(typeof(UnitCTRL), nameof(UnitCTRL.GetHP_MAXDisplay))]
@@ -205,6 +211,54 @@ namespace Langrisser1_2_PersonalMod.Patches
                 num = 999;
             }
             __result = num;
+        }
+
+        [HarmonyPatch(typeof(UnitCTRL), nameof(UnitCTRL.GetMoveRange))]
+        [HarmonyPostfix]
+        public static void ModifyMovement(UnitCTRL __instance, int flag, ref int __result)
+        {
+            int num = __instance.classData.moveRange;
+            if (flag == 0 || flag == 1)
+            {
+                num += __instance.GetSkillEffect(10);
+                num += __instance.GetItemEffect(10);
+            }
+            if (flag == 1)
+            {
+                if (__instance.GetUnitCategory() != 0 && __instance.unitWork.memberList[0] > -1)
+                {
+                    if (Helpers.GetSkillData(__instance.unitManager.GetUnitCTRL((int)__instance.unitWork.memberList[0]), "Legend", out SkillData skillData))
+                    {
+                        num += skillData.move;
+                    }
+                }
+                int magicEffect = __instance.GetMagicEffect(14);
+                num += magicEffect;
+                
+            }
+            if (num <= -1)
+            {
+                num = 0;
+            }
+            if (num >= 31)
+            {
+                num = 30;
+            }
+            __result = num;
+        }
+
+        [HarmonyPatch(typeof(UnitCTRL), nameof(UnitCTRL.AddClassPoint))]
+        [HarmonyPrefix]
+        public static void ClassPointMult(ref int data)
+        {
+            data = data < 0 ? data : data * 2;
+        }
+
+        [HarmonyPatch(typeof(UnitCTRL), nameof(UnitCTRL.AddStageMoney))]
+        [HarmonyPrefix]
+        public static void StageMoneyMult(ref int data)
+        {
+            data = data < 0 ? data : data * 2;
         }
     }
 }
